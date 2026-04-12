@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-// Parchment palette
 const _parchment = Color(0xFFF2DFA7);
 const _parchmentCard = Color(0xFFE8D090);
 const _ink = Color(0xFF2B1A0E);
