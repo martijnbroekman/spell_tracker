@@ -246,16 +246,17 @@ String _range(Range? range) {
 String _duration(List<Duration>? durations) {
   if (durations == null || durations.isEmpty) return '—';
   final d = durations.first;
-  final detail = d.time?.firstOrNull;
 
-  final base = switch (detail?.type) {
+  final base = switch (d.type) {
     'instant' => 'Instantaneous',
-    'timed' => '${detail?.duration ?? ''} ${detail?.unit ?? ''}'.trim(),
     'permanent' => 'Until dispelled',
-    _ => detail?.type ?? '—',
+    'special' => 'Special',
+    'timed' when d.amount != null && d.unit != null =>
+      '${d.amount} ${d.unit}',
+    _ => '—',
   };
 
-  return d.concentration == true ? 'Concentration, up to $base' : base;
+  return d.concentration ? 'Concentration, up to $base' : base;
 }
 
 String _components(Components? c) {

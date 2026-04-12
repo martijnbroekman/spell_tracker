@@ -114,40 +114,35 @@ class Components {
   }
 }
 
-class DurationDetail {
-  final String? type;
-  final int? duration;
+class Duration {
+  /// The kind of duration: `"instant"`, `"timed"`, `"permanent"`,
+  /// or `"special"`.
+  final String type;
+
+  /// The numeric length for `"timed"` durations (e.g. `8` for 8 hours).
+  final int? amount;
+
+  /// The time unit for `"timed"` durations: `"round"`, `"minute"`,
+  /// `"hour"`, or `"day"`.
   final String? unit;
 
-  DurationDetail({this.type, this.duration, this.unit});
+  /// Whether the spell requires concentration.
+  final bool concentration;
 
-  factory DurationDetail.fromJson(dynamic json) {
-    if (json is String) {
-      return DurationDetail(type: json);
-    }
-    if (json is Map<String, dynamic>) {
-      return DurationDetail(
-        type: json['type'],
-        duration: json['duration'],
-        unit: json['unit'],
-      );
-    }
-    return DurationDetail();
-  }
-}
-
-class Duration {
-  final List<DurationDetail>? time;
-  final bool? concentration;
-
-  Duration({this.time, this.concentration});
+  Duration({
+    required this.type,
+    this.amount,
+    this.unit,
+    this.concentration = false,
+  });
 
   factory Duration.fromJson(Map<String, dynamic> json) {
+    final nested = json['duration'] as Map<String, dynamic>?;
     return Duration(
-      time: (json['time'] as List?)
-          ?.map((e) => DurationDetail.fromJson(e))
-          .toList(),
-      concentration: json['concentration'],
+      type: json['type'] as String? ?? 'special',
+      amount: nested?['amount'] as int?,
+      unit: nested?['type'] as String?,
+      concentration: json['concentration'] as bool? ?? false,
     );
   }
 }
