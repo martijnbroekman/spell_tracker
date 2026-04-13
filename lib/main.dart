@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:spell_tracker/screens/spells_screen.dart';
+import 'package:spell_tracker/screens/app_shell.dart';
 import 'package:spell_tracker/theme.dart';
 
 void main() {
-  runApp(ProviderScope(child: const App()));
+  runApp(const ProviderScope(child: App()));
 }
 
 class App extends StatelessWidget {
@@ -15,7 +15,7 @@ class App extends StatelessWidget {
     return MaterialApp(
       title: 'Spellbook',
       theme: parchmentTheme(),
-      home: const SpellsScreen(),
+      home: const AppShell(),
     );
   }
 }
