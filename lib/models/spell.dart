@@ -168,6 +168,20 @@ class Duration {
   }
 }
 
+/// Returns the full school name for a single-letter [code], e.g. `'V'` →
+/// `'Evocation'`. Returns [code] unchanged when unrecognised.
+String schoolNameFromCode(String code) => switch (code) {
+  'A' => 'Abjuration',
+  'C' => 'Conjuration',
+  'D' => 'Divination',
+  'E' => 'Enchantment',
+  'V' => 'Evocation',
+  'I' => 'Illusion',
+  'N' => 'Necromancy',
+  'T' => 'Transmutation',
+  _ => code,
+};
+
 /// A single D&D 5e spell with all of its properties.
 class Spell {
   /// The spell's name.
@@ -256,17 +270,7 @@ class Spell {
   });
 
   /// Full school name derived from the single-letter [school] code.
-  String get schoolName => switch (school) {
-    'A' => 'Abjuration',
-    'C' => 'Conjuration',
-    'D' => 'Divination',
-    'E' => 'Enchantment',
-    'V' => 'Evocation',
-    'I' => 'Illusion',
-    'N' => 'Necromancy',
-    'T' => 'Transmutation',
-    _ => school,
-  };
+  String get schoolName => schoolNameFromCode(school);
 
   factory Spell.fromJson(Map<String, dynamic> json) {
     return Spell(

@@ -81,6 +81,9 @@ ThemeData parchmentTheme() {
     ),
     chipTheme: ChipThemeData(
       backgroundColor: const Color(0xFFDEC898),
+      selectedColor: _brownDark,
+      checkmarkColor: _parchment,
+      showCheckmark: true,
       labelStyle: GoogleFonts.lora(fontSize: 12, color: _ink),
       side: const BorderSide(color: Color(0xFFA07840)),
       padding: const EdgeInsets.symmetric(horizontal: 4),
