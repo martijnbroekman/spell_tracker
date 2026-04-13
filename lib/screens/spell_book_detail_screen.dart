@@ -143,12 +143,76 @@ class _SpellList extends StatelessWidget {
 
   final List<Spell> spells;
 
+  /// Builds a flat list of items — either a [_LevelHeader] or a [Spell] —
+  /// sorted by level then name, with a header at the start of each group.
+  List<Object> _buildItems() {
+    final sorted = [...spells]
+      ..sort((a, b) {
+        final lvl = a.level.compareTo(b.level);
+        return lvl != 0 ? lvl : a.name.compareTo(b.name);
+      });
+
+    final items = <Object>[];
+    int? lastLevel;
+    for (final spell in sorted) {
+      if (spell.level != lastLevel) {
+        items.add(spell.level);
+        lastLevel = spell.level;
+      }
+      items.add(spell);
+    }
+    return items;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      itemCount: spells.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
-      itemBuilder: (context, index) => SpellTile(spell: spells[index]),
+    final items = _buildItems();
+    return ListView.builder(
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        if (item is int) return _LevelHeader(level: item);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SpellTile(spell: item as Spell),
+            if (index < items.length - 1 && items[index + 1] is! int)
+              const Divider(height: 1),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _LevelHeader extends StatelessWidget {
+  const _LevelHeader({required this.level});
+
+  final int level;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final label = level == 0 ? 'Cantrip' : 'Level $level';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Divider(
+              color: theme.colorScheme.primary.withValues(alpha: 0.3),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
