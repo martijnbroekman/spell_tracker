@@ -14,40 +14,94 @@ void showFilterSheet(BuildContext context) {
   );
 }
 
-class _FilterSheet extends StatelessWidget {
+class _FilterSheet extends ConsumerWidget {
   const _FilterSheet();
 
   @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.65,
-      minChildSize: 0.4,
-      maxChildSize: 0.95,
-      builder: (context, scrollController) {
-        return ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          child: Material(
-            color: Theme.of(context).colorScheme.surface,
-            child: CustomScrollView(
-              controller: scrollController,
-              slivers: const [
-                SliverToBoxAdapter(child: _SheetHandle()),
-                SliverToBoxAdapter(child: _SheetHeader()),
-                SliverToBoxAdapter(child: Divider(height: 1)),
-                SliverToBoxAdapter(child: _LevelFilterSection()),
-                SliverToBoxAdapter(child: Divider(height: 1)),
-                SliverToBoxAdapter(child: _SchoolFilterSection()),
-                SliverToBoxAdapter(child: Divider(height: 1)),
-                SliverToBoxAdapter(child: _ClassFilterSection()),
-                SliverToBoxAdapter(child: Divider(height: 1)),
-                SliverToBoxAdapter(child: _SourceFilterSection()),
-                SliverToBoxAdapter(child: SizedBox(height: 32)),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filter = ref.watch(spellFilterProvider);
+    final sourcesAsync = ref.watch(availableSourcesProvider);
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        child: Material(
+          color: theme.colorScheme.surface,
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _SheetHandle(),
+                _SheetHeader(filter: filter),
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _MultiSelectField<int>(
+                        label: 'Spell Level',
+                        options: List.generate(10, (i) => i),
+                        selected: filter.levels,
+                        labelOf: (l) => l == 0 ? 'Cantrip' : 'Level $l',
+                        emptyLabel: 'All levels',
+                        onChanged: (next) => ref
+                            .read(spellFilterProvider.notifier)
+                            .set(filter.copyWith(levels: next)),
+                      ),
+                      const SizedBox(height: 12),
+                      _MultiSelectField<String>(
+                        label: 'School',
+                        options: const [
+                          'A', 'C', 'D', 'E', 'V', 'I', 'N', 'T',
+                        ],
+                        selected: filter.schools,
+                        labelOf: _schoolLabel,
+                        emptyLabel: 'All schools',
+                        onChanged: (next) => ref
+                            .read(spellFilterProvider.notifier)
+                            .set(filter.copyWith(schools: next)),
+                      ),
+                      const SizedBox(height: 12),
+                      _MultiSelectField<ClassType>(
+                        label: 'Class',
+                        options: ClassType.values,
+                        selected: filter.classes,
+                        labelOf: _className,
+                        emptyLabel: 'All classes',
+                        onChanged: (next) => ref
+                            .read(spellFilterProvider.notifier)
+                            .set(filter.copyWith(classes: next)),
+                      ),
+                      const SizedBox(height: 12),
+                      sourcesAsync.when(
+                        data: (sources) => _MultiSelectField<String>(
+                          label: 'Source Book',
+                          options: sources,
+                          selected: filter.sources,
+                          labelOf: (s) => s,
+                          emptyLabel: 'All sources',
+                          onChanged: (next) => ref
+                              .read(spellFilterProvider.notifier)
+                              .set(filter.copyWith(sources: next)),
+                        ),
+                        loading: () => const _FieldSkeleton(label: 'Source Book'),
+                        error: (_, _) => const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -71,230 +125,253 @@ class _SheetHandle extends StatelessWidget {
   }
 }
 
-class _SheetHeader extends ConsumerWidget {
-  const _SheetHeader();
+class _SheetHeader extends StatelessWidget {
+  const _SheetHeader({required this.filter});
+
+  final SpellFilter filter;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final filter = ref.watch(spellFilterProvider);
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 12, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              'Filter Spells',
-              style: theme.textTheme.titleLarge,
+  Widget build(BuildContext context) {
+    return Consumer(
+      builder: (context, ref, _) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 12, 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Filter Spells',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ),
-          ),
-          if (!filter.isEmpty)
-            TextButton(
-              onPressed: () => ref
-                  .read(spellFilterProvider.notifier)
-                  .set(const SpellFilter()),
-              child: const Text('Clear all'),
-            ),
-        ],
+            if (!filter.isEmpty)
+              TextButton(
+                onPressed: () => ref
+                    .read(spellFilterProvider.notifier)
+                    .set(const SpellFilter()),
+                child: const Text('Clear all'),
+              ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.title);
+/// A tappable form-field-style row that opens a multi-select dialog.
+class _MultiSelectField<T> extends StatelessWidget {
+  const _MultiSelectField({
+    required this.label,
+    required this.options,
+    required this.selected,
+    required this.labelOf,
+    required this.emptyLabel,
+    required this.onChanged,
+  });
+
+  final String label;
+  final List<T> options;
+  final Set<T> selected;
+  final String Function(T) labelOf;
+  final String emptyLabel;
+  final ValueChanged<Set<T>> onChanged;
+
+  String get _summary {
+    if (selected.isEmpty) return emptyLabel;
+    if (selected.length == options.length) return emptyLabel;
+    final labels = options
+        .where(selected.contains)
+        .map(labelOf)
+        .toList();
+    if (labels.length <= 3) return labels.join(', ');
+    return '${labels.take(2).join(', ')} +${labels.length - 2} more';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isActive = selected.isNotEmpty && selected.length < options.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: theme.textTheme.labelLarge),
+        const SizedBox(height: 4),
+        InkWell(
+          onTap: () => _openDialog(context),
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                  : theme.colorScheme.surface,
+              border: Border.all(
+                color: isActive
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.outline,
+              ),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _summary,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: isActive
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurface,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_drop_down,
+                  color: isActive
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openDialog(BuildContext context) async {
+    final result = await showDialog<Set<T>>(
+      context: context,
+      builder: (_) => _MultiSelectDialog<T>(
+        title: label,
+        options: options,
+        selected: selected,
+        labelOf: labelOf,
+      ),
+    );
+    if (result != null) onChanged(result);
+  }
+}
+
+/// A skeleton placeholder used while [availableSourcesProvider] is loading.
+class _FieldSkeleton extends StatelessWidget {
+  const _FieldSkeleton({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: theme.textTheme.labelLarge),
+        const SizedBox(height: 4),
+        Container(
+          height: 48,
+          decoration: BoxDecoration(
+            border: Border.all(color: theme.colorScheme.outline),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MultiSelectDialog<T> extends StatefulWidget {
+  const _MultiSelectDialog({
+    required this.title,
+    required this.options,
+    required this.selected,
+    required this.labelOf,
+  });
 
   final String title;
+  final List<T> options;
+  final Set<T> selected;
+  final String Function(T) labelOf;
+
+  @override
+  State<_MultiSelectDialog<T>> createState() => _MultiSelectDialogState<T>();
+}
+
+class _MultiSelectDialogState<T> extends State<_MultiSelectDialog<T>> {
+  late Set<T> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = Set<T>.of(widget.selected);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.titleSmall,
+    final theme = Theme.of(context);
+
+    return AlertDialog(
+      title: Text(widget.title),
+      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: widget.options.length,
+          itemBuilder: (context, index) {
+            final option = widget.options[index];
+            return CheckboxListTile(
+              title: Text(
+                widget.labelOf(option),
+                style: theme.textTheme.bodyMedium,
+              ),
+              value: _selected.contains(option),
+              dense: true,
+              onChanged: (checked) {
+                setState(() {
+                  if (checked == true) {
+                    _selected.add(option);
+                  } else {
+                    _selected.remove(option);
+                  }
+                });
+              },
+            );
+          },
+        ),
       ),
-    );
-  }
-}
-
-class _ChipGroup extends StatelessWidget {
-  const _ChipGroup({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: Wrap(spacing: 8, runSpacing: 4, children: children),
-    );
-  }
-}
-
-class _LevelFilterSection extends ConsumerWidget {
-  const _LevelFilterSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selected = ref.watch(
-      spellFilterProvider.select((f) => f.levels),
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionLabel('Spell Level'),
-        _ChipGroup(
-          children: [
-            for (final level in List.generate(10, (i) => i))
-              FilterChip(
-                label: Text(level == 0 ? 'Cantrip' : '$level'),
-                selected: selected.contains(level),
-                onSelected: (on) {
-                  final next = Set<int>.of(selected);
-                  on ? next.add(level) : next.remove(level);
-                  ref
-                      .read(spellFilterProvider.notifier)
-                      .set(ref.read(spellFilterProvider).copyWith(levels: next));
-                },
-              ),
-          ],
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, <T>{}),
+          child: const Text('Clear'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _selected),
+          child: const Text('Done'),
         ),
       ],
     );
   }
 }
 
-class _SchoolFilterSection extends ConsumerWidget {
-  const _SchoolFilterSection();
-
-  static const _schools = [
-    ('A', 'Abjuration'),
-    ('C', 'Conjuration'),
-    ('D', 'Divination'),
-    ('E', 'Enchantment'),
-    ('V', 'Evocation'),
-    ('I', 'Illusion'),
-    ('N', 'Necromancy'),
-    ('T', 'Transmutation'),
-  ];
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selected = ref.watch(
-      spellFilterProvider.select((f) => f.schools),
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionLabel('School'),
-        _ChipGroup(
-          children: [
-            for (final (code, label) in _schools)
-              FilterChip(
-                label: Text(label),
-                selected: selected.contains(code),
-                onSelected: (on) {
-                  final next = Set<String>.of(selected);
-                  on ? next.add(code) : next.remove(code);
-                  ref
-                      .read(spellFilterProvider.notifier)
-                      .set(
-                        ref.read(spellFilterProvider).copyWith(schools: next),
-                      );
-                },
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _ClassFilterSection extends ConsumerWidget {
-  const _ClassFilterSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selected = ref.watch(
-      spellFilterProvider.select((f) => f.classes),
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionLabel('Class'),
-        _ChipGroup(
-          children: [
-            for (final cls in ClassType.values)
-              FilterChip(
-                label: Text(_className(cls)),
-                selected: selected.contains(cls),
-                onSelected: (on) {
-                  final next = Set<ClassType>.of(selected);
-                  on ? next.add(cls) : next.remove(cls);
-                  ref
-                      .read(spellFilterProvider.notifier)
-                      .set(
-                        ref.read(spellFilterProvider).copyWith(classes: next),
-                      );
-                },
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _SourceFilterSection extends ConsumerWidget {
-  const _SourceFilterSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selected = ref.watch(
-      spellFilterProvider.select((f) => f.sources),
-    );
-    final sourcesAsync = ref.watch(availableSourcesProvider);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionLabel('Source Book'),
-        sourcesAsync.when(
-          data: (sources) => _ChipGroup(
-            children: [
-              for (final source in sources)
-                FilterChip(
-                  label: Text(source),
-                  selected: selected.contains(source),
-                  onSelected: (on) {
-                    final next = Set<String>.of(selected);
-                    on ? next.add(source) : next.remove(source);
-                    ref
-                        .read(spellFilterProvider.notifier)
-                        .set(
-                          ref
-                              .read(spellFilterProvider)
-                              .copyWith(sources: next),
-                        );
-                  },
-                ),
-            ],
-          ),
-          loading: () => const Padding(
-            padding: EdgeInsets.all(16),
-            child: CircularProgressIndicator(),
-          ),
-          error: (_, _) => const SizedBox.shrink(),
-        ),
-      ],
-    );
-  }
-}
+String _schoolLabel(String code) => switch (code) {
+  'A' => 'Abjuration',
+  'C' => 'Conjuration',
+  'D' => 'Divination',
+  'E' => 'Enchantment',
+  'V' => 'Evocation',
+  'I' => 'Illusion',
+  'N' => 'Necromancy',
+  'T' => 'Transmutation',
+  _ => code,
+};
 
 String _className(ClassType c) {
   final name = c.name;
