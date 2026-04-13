@@ -293,7 +293,7 @@ class Spell {
           .toList(),
       entries: (json['entries'] as List?)?.whereType<String>().toList(),
       entriesHigherLevel:
-          (json['entriesHigherLevel'] as List?)?.whereType<String>().toList(),
+          (json['entriesHigherLevel'] as List?)?.first['entries'].whereType<String>().toList(),
       damageInflict: (json['damageInflict'] as List?)?.cast<String>(),
       savingThrow: (json['savingThrow'] as List?)?.cast<String>(),
       conditionInflict: (json['conditionInflict'] as List?)?.cast<String>(),
